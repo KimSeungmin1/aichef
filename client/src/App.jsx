@@ -72,7 +72,6 @@ function App() {
     <div className="app-container">
       <header className="app-header">
         <h1>👨‍🍳 AI Chef</h1>
-        <p className="server-status">서버 상태: {serverMessage}</p>
       </header>
 
       <main className="main-content">
