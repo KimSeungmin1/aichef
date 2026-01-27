@@ -19,6 +19,7 @@ async function getRecipeRecommendation(ingredients) {
     4. '개', '대' 등의 단위를 쓸 때는 괄호()로 부가 설명을 추가하지 마세요. (예: '계란 2개' O, '계란 2개(100g)' X)
     5. 조리 과정은 번호를 매겨서 순서대로 아주 쉽게 설명해주세요.
     6. 말투는 친절하고 격려하는 톤으로 작성해주세요.
+    7. 익히는 시간, 끓이는 시간 등 얼마나 조리해야 하는지 시간 단위를 추가해주세요.(예: '돼지 고기 5분 익히기')
     
     반드시 다음 JSON 형식으로 응답해주세요:
     {
@@ -36,39 +37,31 @@ async function getRecipeRecommendation(ingredients) {
 
   try {
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    
-    // JSON 파싱 시도
+    const text = result.response.text();
     try {
-      // JSON 코드 블록이 있는 경우 제거
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      const jsonText = jsonMatch ? jsonMatch[0] : text;
-      const parsed = JSON.parse(jsonText);
-      return parsed;
+      return JSON.parse(jsonMatch ? jsonMatch[0] : text);
     } catch (parseError) {
       console.error("JSON 파싱 오류:", parseError);
-      // 파싱 실패 시 기존 텍스트 반환 (하위 호환성)
-      return { 
-        title: "레시피",
-        description: "",
-        ingredients: [],
-        steps: [{ step: 1, instruction: text }]
-      };
+      return { title: "레시피", description: "", ingredients: [], steps: [{ step: 1, instruction: text }] };
     }
   } catch (error) {
     console.error("Gemini API Error:", error);
   }
 }
 
-async function getIngredientSubstitute(ingredient, recipeTitle) {
+async function getIngredientSubstitute(ingredient, recipeTitle, excludedIngredients = []) {
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+  const excludedText = excludedIngredients.length > 0 
+    ? `\n중요: 다음 재료들은 이미 제안되었거나 사용자가 없다고 한 재료이므로 절대 추천하지 마세요: ${excludedIngredients.join(', ')}`
+    : '';
 
   const prompt = `
     사용자가 '${recipeTitle}' 요리를 하려고 하는데, 재료 중 '${ingredient}'가 없다고 합니다.
     
     '${ingredient}' 대신 사용할 수 있는 재료를 1~2가지만 추천해주고, 없으면 생략 가능한지 알려주세요.
-    설명은 50자 이내로 아주 짧고 친절하게 해주세요.
+    설명은 50자 이내로 아주 짧고 친절하게 해주세요.${excludedText}
     
     예시 답변:
     - "식초 1큰술로 대체 가능해요!"
