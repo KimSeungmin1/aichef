@@ -13,7 +13,7 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.send('AI Chef Server is running!');
 });
-const { getRecipeRecommendation } = require('./services/geminiService');
+const { getRecipeRecommendation, getIngredientSubstitute } = require('./services/geminiService');
 
 // 레시피 추천 API 엔드포인트
 app.post('/api/recommend', async (req, res) => {
@@ -29,6 +29,20 @@ app.post('/api/recommend', async (req, res) => {
     res.json({ recipe });
   } catch (error) {
     res.status(500).json({ error: '레시피 생성 중 오류가 발생했습니다.' });
+  }
+});
+app.post('/api/substitute', async (req, res) => {
+  const { ingredient, recipeTitle } = req.body;
+
+  if (!ingredient) {
+    return res.status(400).json({ error: '재료명이 필요합니다.' });
+  }
+
+  try {
+    const substitute = await getIngredientSubstitute(ingredient, recipeTitle || '요리');
+    res.json({ substitute });
+  } catch (error) {
+    res.status(500).json({ error: '대체 재료 찾기 실패' });
   }
 });
 

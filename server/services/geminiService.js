@@ -5,7 +5,7 @@ require('dotenv').config();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function getRecipeRecommendation(ingredients) {
-  const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const prompt = `
     당신은 요리 초보자를 위한 친절한 'AI 셰프'입니다.
@@ -16,8 +16,8 @@ async function getRecipeRecommendation(ingredients) {
     [필수 요구사항]
     1. 요리 이름과 간단한 설명을 먼저 적어주세요.
     2. '쉬운 용어'를 사용하세요 (예: '소테' 대신 '볶기').
-    3. 계량은 반드시 '숟가락', '종이컵' 등 직관적인 단위를 사용하세요 (g, ml 사용 지양).
-    4. 사용자가 가진 재료 외에 필수적인 양념이 없다면 '대체 재료'를 알려주세요.
+    3. 계량은 g, ml 단위를 기본으로 사용하되, 괄호() 안에 '숟가락', '티스푼', '종이컵' 등의 직관적인 단위를 병기해주세요. (예: '설탕 10g (1큰술)')
+    4. '개', '대' 등의 단위를 쓸 때는 괄호()로 부가 설명을 추가하지 마세요. (예: '계란 2개' O, '계란 2개(100g)' X)
     5. 조리 과정은 번호를 매겨서 순서대로 아주 쉽게 설명해주세요.
     6. 말투는 친절하고 격려하는 톤으로 작성해주세요.
     
@@ -59,8 +59,32 @@ async function getRecipeRecommendation(ingredients) {
     }
   } catch (error) {
     console.error("Gemini API Error:", error);
-    throw new Error("레시피를 가져오는 데 실패했습니다.");
   }
 }
 
-module.exports = { getRecipeRecommendation };
+async function getIngredientSubstitute(ingredient, recipeTitle) {
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+  const prompt = `
+    사용자가 '${recipeTitle}' 요리를 하려고 하는데, 재료 중 '${ingredient}'가 없다고 합니다.
+    
+    '${ingredient}' 대신 사용할 수 있는 재료를 1~2가지만 추천해주고, 없으면 생략 가능한지 알려주세요.
+    설명은 50자 이내로 아주 짧고 친절하게 해주세요.
+    
+    예시 답변:
+    - "식초 1큰술로 대체 가능해요!"
+    - "없으면 생략해도 괜찮아요."
+    - "양파나 부추를 대신 넣어도 좋아요."
+  `;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
+  } catch (error) {
+    console.error("Gemini Substitute Error:", error);
+    return "대체 재료를 찾을 수 없습니다.";
+  }
+}
+
+module.exports = { getRecipeRecommendation, getIngredientSubstitute };

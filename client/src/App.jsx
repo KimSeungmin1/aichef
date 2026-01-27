@@ -6,12 +6,14 @@ function App() {
   const [ingredients, setIngredients] = useState('');
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [substitutes, setSubstitutes] = useState({});
+  const [loadingSubstitute, setLoadingSubstitute] = useState({});
 
   useEffect(() => {
     fetch('http://localhost:5000/')
       .then((res) => res.text())
       .then((data) => setServerMessage(data))
-      .catch((err) => setServerMessage('서버 연결 실패'));
+      .catch(() => setServerMessage('서버 연결 실패'));
   }, []);
 
   const handleRecommendation = async () => {
@@ -38,6 +40,31 @@ function App() {
       alert('서버 통신 오류가 발생했습니다.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubstitute = async (ingredient) => {
+    if (substitutes[ingredient]) return; // 이미 불러온 경우 중복 요청 방지
+
+    setLoadingSubstitute((prev) => ({ ...prev, [ingredient]: true }));
+
+    try {
+      const response = await fetch('http://localhost:5000/api/substitute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          ingredient,
+          recipeTitle: recipe.title 
+        }),
+      });
+
+      const data = await response.json();
+      setSubstitutes((prev) => ({ ...prev, [ingredient]: data.substitute }));
+    } catch (error) {
+      console.error(error);
+      alert('대체 재료를 찾는 중 오류가 발생했습니다.');
+    } finally {
+      setLoadingSubstitute((prev) => ({ ...prev, [ingredient]: false }));
     }
   };
 
@@ -79,7 +106,21 @@ function App() {
                   <h3>📋 필요한 재료</h3>
                   <ul>
                     {recipe.ingredients.map((ingredient, idx) => (
-                      <li key={idx}>{ingredient}</li>
+                      <li key={idx} className="ingredient-item">
+                        <span className="ingredient-text">{ingredient}</span>
+                        <button 
+                          className="substitute-btn"
+                          onClick={() => handleSubstitute(ingredient)}
+                          disabled={loadingSubstitute[ingredient]}
+                        >
+                          {loadingSubstitute[ingredient] ? '찾는 중...' : '없어요 🙅‍♂️'}
+                        </button>
+                        {substitutes[ingredient] && (
+                          <div className="substitute-result">
+                            💡 {substitutes[ingredient]}
+                          </div>
+                        )}
+                      </li>
                     ))}
                   </ul>
                 </div>
