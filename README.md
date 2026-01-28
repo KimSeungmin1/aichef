@@ -7,6 +7,7 @@
 ---
 
 ## ✨ 주요 기능
+<img width="2879" height="1523" alt="Image" src="https://github.com/user-attachments/assets/3e5a31e4-1ec0-4e6d-bb34-02a0b00b36ce" />
 
 ### 1. 🥘 스마트 레시피 추천
 
