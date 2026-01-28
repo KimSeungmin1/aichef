@@ -27,8 +27,61 @@ app.use(cors());
 app.use(express.json());
 
 const { getRecipeRecommendation, getIngredientSubstitute } = require('./services/geminiService');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'aichef_secret_key';
 
 app.get('/', (req, res) => res.send('AI Chef Server is running!'));
+
+// --- Auth Routes ---
+app.post('/api/register', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ success: false, message: '아이디와 비밀번호를 입력해주세요.' });
+
+  try {
+    const existingUser = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ success: false, message: '이미 존재하는 아이디입니다.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id, username',
+      [username, hashedPassword]
+    );
+
+    const user = result.rows[0];
+    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+
+    res.json({ success: true, message: '회원가입 성공', token, user });
+  } catch (error) {
+    console.error('Registration Error:', error);
+    res.status(500).json({ success: false, message: '서버 오류 발생' });
+  }
+});
+
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ success: false, message: '아이디와 비밀번호를 입력해주세요.' });
+
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    if (result.rows.length === 0) return res.status(400).json({ success: false, message: '아이디 또는 비밀번호가 잘못되었습니다.' });
+
+    const user = result.rows[0];
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) return res.status(400).json({ success: false, message: '아이디 또는 비밀번호가 잘못되었습니다.' });
+
+    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+
+    res.json({ success: true, message: '로그인 성공', token, user: { id: user.id, username: user.username } });
+  } catch (error) {
+    console.error('Login Error:', error);
+    res.status(500).json({ success: false, message: '서버 오류 발생' });
+  }
+});
 app.post('/api/recommend', async (req, res) => {
   const { ingredients } = req.body;
   if (!ingredients) return res.status(400).json({ error: '재료를 입력해주세요.' });

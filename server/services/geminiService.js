@@ -1,11 +1,16 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-require('dotenv').config();
+require('dotenv').config(); // 환경 변수 로드
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); // Gemini API 초기화
 
-async function getRecipeRecommendation(ingredients) {
+async function getRecipeRecommendation(ingredients) { // 레시피 추천
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
+  // JSON 형식으로 응답 받기 위한 프롬프트
+  // 왜 JSON 형식으로 응답 받는가?
+  // 1. 응답을 쉽게 파싱할 수 있기 때문 
+  // 2. 응답을 쉽게 저장할 수 있기 때문
+  // 파싱: 응답을 쉽게 읽을 수 있도록 변환하는 과정
   const prompt = `
     당신은 요리 초보자를 위한 친절한 'AI 셰프'입니다.
     사용자가 가진 냉장고 재료는 다음과 같습니다: [${ingredients}]
@@ -39,8 +44,8 @@ async function getRecipeRecommendation(ingredients) {
     const result = await model.generateContent(prompt);
     const text = result.response.text();
     try {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      return JSON.parse(jsonMatch ? jsonMatch[0] : text);
+      const jsonMatch = text.match(/\{[\s\S]*\}/); // JSON 형식의 응답을 찾기 위한 정규 표현식
+      return JSON.parse(jsonMatch ? jsonMatch[0] : text); // JSON 형식의 응답을 파싱
     } catch (parseError) {
       console.error("JSON 파싱 오류:", parseError);
       return { title: "레시피", description: "", ingredients: [], steps: [{ step: 1, instruction: text }] };
@@ -50,6 +55,7 @@ async function getRecipeRecommendation(ingredients) {
   }
 }
 
+// 재료 대체
 async function getIngredientSubstitute(ingredient, recipeTitle, excludedIngredients = []) {
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 

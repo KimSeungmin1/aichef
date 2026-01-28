@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
+import Auth from './components/Auth';
 
 const API_BASE = 'http://localhost:5000';
-const USER_ID = 1;
 
 const extractIngredientName = (text) => {
   const match = text.match(/([가-힣]+(?:\s+[가-힣]+)?)/);
@@ -44,6 +44,7 @@ function SubstituteResult({ substitute, ingredient, onSubstitute, loadingSubstit
 }
 
 function App() {
+  const [user, setUser] = useState(null);
   const [ingredients, setIngredients] = useState('');
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -53,15 +54,32 @@ function App() {
   const [showSavedRecipes, setShowSavedRecipes] = useState(false);
   const [isFromSavedRecipes, setIsFromSavedRecipes] = useState(false);
 
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    if (token && storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    setRecipe(null);
+    setShowSavedRecipes(false);
+  };
+
   const formatDate = (d) =>
     new Date(d).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   const resetRecipeState = () => {
-    setRecipe(null);
+    setRecipe(null); // 레시피 초기화
     setIsFromSavedRecipes(false);
     setShowSavedRecipes(false);
   };
 
+  // 레시피 추천 API 호출
   const handleRecommendation = async () => {
     if (!ingredients.trim()) return alert('재료를 입력해주세요!');
     setLoading(true);
@@ -75,7 +93,7 @@ function App() {
       });
       const data = await res.json();
       if (data.recipe) {
-        setRecipe(data.recipe);
+        setRecipe(data.recipe); // setRecipe: 레시피 데이터 저장
       } else {
         alert('레시피를 가져오지 못했습니다.');
       }
@@ -87,6 +105,7 @@ function App() {
     }
   };
 
+  // 사용된 재료 추출
   const getUsedIngredients = (ingredient, parentIngredient, substitutes) => {
     const used = new Set();
     recipe?.ingredients?.forEach((ing) => used.add(extractIngredientName(ing)));
@@ -100,25 +119,26 @@ function App() {
     return [...used];
   };
 
+  // 대체 재료 API 호출
   const handleSubstitute = async (ingredient, parentIngredient = null, providedUsed = null) => {
-    const key = parentIngredient ? `${parentIngredient}_${ingredient}` : ingredient;
-    if (loadingSubstitute[key]) return;
-    const usedIngredients = providedUsed ?? getUsedIngredients(ingredient, parentIngredient, substitutes);
-    setLoadingSubstitute((prev) => ({ ...prev, [key]: true }));
+    const key = parentIngredient ? `${parentIngredient}_${ingredient}` : ingredient; 
+    if (loadingSubstitute[key]) return; // 이미 로딩 중이면 중복 요청 방지
+    const usedIngredients = providedUsed ?? getUsedIngredients(ingredient, parentIngredient, substitutes); // 사용된 재료 추출
+    setLoadingSubstitute((prev) => ({ ...prev, [key]: true })); // 로딩 상태 업데이트
     try {
-      const res = await fetch(`${API_BASE}/api/substitute`, {
+      const res = await fetch(`${API_BASE}/api/substitute`, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           ingredient, 
           recipeTitle: recipe.title,
-          excludedIngredients: usedIngredients
+          excludedIngredients: usedIngredients // 사용된 재료 제외
         }),
       });
       const data = await res.json();
       setSubstitutes((prev) => ({ 
-        ...prev, 
-        [key]: { text: data.substitute, parentIngredient: parentIngredient || null } 
+        ...prev, // 이전 대체 재료 상태 복사
+        [key]: { text: data.substitute, parentIngredient: parentIngredient || null } // 새로운 대체 재료 추가
       }));
     } catch (error) {
       console.error(error);
@@ -128,14 +148,15 @@ function App() {
     }
   };
 
+  // 레시피 저장
   const handleSaveToDB = async () => {
-    if (!recipe) return;
+    if (!recipe || !user) return;
     try {
       const res = await fetch(`${API_BASE}/api/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: USER_ID,
+          user_id: user.id,
           recipe_title: recipe.title || '레시피',
           recipe_content: JSON.stringify(recipe, null, 2),
         }),
@@ -153,6 +174,7 @@ function App() {
     }
   };
 
+  // 레시피 .txt로 저장
   const handleSaveToFile = () => {
     if (!recipe) return;
     const title = recipe.title || '레시피';
@@ -164,9 +186,9 @@ function App() {
     if (recipe.steps?.length) {
       parts.push('조리 방법:\n', ...recipe.steps.map(step => `${step.step || ''}. ${step.instruction}\n`));
     }
-    const blob = new Blob([parts.join('')], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const blob = new Blob([parts.join('')], { type: 'text/plain;charset=utf-8' }); // Blob: 파일 데이터
+    const url = URL.createObjectURL(blob); // URL: 파일 데이터를 URL로 변환
+    const link = document.createElement('a'); // a 태그 생성
     link.href = url;
     link.download = `${title.replace(/[^a-z0-9가-힣]/gi, '_')}.txt`;
     link.click();
@@ -174,11 +196,14 @@ function App() {
     alert('컴퓨터에 저장되었습니다!');
   };
 
+  // 내 레시피북 보기
   const handleLoadSavedRecipes = async (e) => {
-    e?.preventDefault?.();
-    e?.stopPropagation?.();
+    e?.preventDefault?.(); // 이벤트 전파 방지
+    e?.stopPropagation?.(); // 이벤트 전파 방지
+    if (!user) return;
+
     try {
-      const res = await fetch(`${API_BASE}/api/saved-recipes?user_id=${USER_ID}`);
+      const res = await fetch(`${API_BASE}/api/saved-recipes?user_id=${user.id}`);
       const data = await res.json();
       if (data.success) {
         setSavedRecipes(data.recipes);
@@ -194,10 +219,11 @@ function App() {
     }
   };
 
+  // 저장된 레시피 상세 보기
   const handleLoadRecipe = (recipeContent) => {
     try {
       setRecipe(JSON.parse(recipeContent));
-      setShowSavedRecipes(false);
+      setShowSavedRecipes(false); // 내 레시피북 보기 화면을 숨김
       setIsFromSavedRecipes(true);
       document.querySelector('.result-section')?.scrollIntoView({ behavior: 'smooth' });
     } catch (error) {
@@ -206,16 +232,20 @@ function App() {
     }
   };
 
+  // 내 레시피북 보기 화면으로 돌아가기
   const handleBackToSavedRecipes = () => {
     setRecipe(null);
     setIsFromSavedRecipes(false);
     setShowSavedRecipes(true);
   };
 
+  // 저장된 레시피 삭제
   const handleDeleteRecipe = async (recipeId) => {
     if (!window.confirm('정말 이 레시피를 삭제하시겠습니까?')) return;
+    if (!user) return;
+
     try {
-      const res = await fetch(`${API_BASE}/api/saved-recipes/${recipeId}?user_id=${USER_ID}`, {
+      const res = await fetch(`${API_BASE}/api/saved-recipes/${recipeId}?user_id=${user.id}`, {
         method: 'DELETE',
       });
       const data = await res.json();
@@ -231,12 +261,19 @@ function App() {
     }
   };
 
+  if (!user) {
+    return <Auth onLogin={setUser} />;
+  }
+
   return (
     <div className="app-container">
       <header className="app-header">
         <h1>AI Chef</h1>
         <button onClick={handleLoadSavedRecipes} className="view-saved-btn">
           내 레시피북 보기
+        </button>
+        <button onClick={handleLogout} className="logout-btn">
+          로그아웃 ({user.username})
         </button>
       </header>
 
