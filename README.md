@@ -7,7 +7,7 @@
 ---
 
 ## 🌟 주요 기능
-<img width="400" height="200" alt="Image" src="https://github.com/user-attachments/assets/3e5a31e4-1ec0-4e6d-bb34-02a0b00b36ce" /><img width="400" height="200" alt="Image" src="https://github.com/user-attachments/assets/b68b9e9a-55d9-43bf-b5a7-bcde99fefc97" />
+<img width="400" height="240" alt="Image" src="https://github.com/user-attachments/assets/3e5a31e4-1ec0-4e6d-bb34-02a0b00b36ce" /><img width="400" height="240" alt="Image" src="https://github.com/user-attachments/assets/b68b9e9a-55d9-43bf-b5a7-bcde99fefc97" />
 
 ### 1. 🥘 스마트 레시피 추천
 
