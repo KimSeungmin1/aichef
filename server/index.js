@@ -15,10 +15,12 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
 });
 
+// 데이터베이스 연결 성공 시 로그
 pool.on('connect', () => {
   console.log('PostgreSQL 데이터베이스에 연결되었습니다.');
 });
 
+// 데이터베이스 연결 오류 시 로그
 pool.on('error', (err) => {
   console.error('PostgreSQL 연결 오류:', err);
 });
@@ -26,6 +28,7 @@ pool.on('error', (err) => {
 app.use(cors());
 app.use(express.json());
 
+// 레시피 추천 서비스
 const { getRecipeRecommendation, getIngredientSubstitute } = require('./services/geminiService');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -40,19 +43,19 @@ app.post('/api/register', async (req, res) => {
   if (!username || !password) return res.status(400).json({ success: false, message: '아이디와 비밀번호를 입력해주세요.' });
 
   try {
-    const existingUser = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    const existingUser = await pool.query('SELECT * FROM users WHERE username = $1', [username]); // 사용자 중복 확인
     if (existingUser.rows.length > 0) {
       return res.status(400).json({ success: false, message: '이미 존재하는 아이디입니다.' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10); // 비밀번호 해싱
     const result = await pool.query(
       'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id, username',
       [username, hashedPassword]
     );
 
     const user = result.rows[0];
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' }); // JWT 토큰 생성
 
     res.json({ success: true, message: '회원가입 성공', token, user });
   } catch (error) {
@@ -61,20 +64,21 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+// 로그인
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ success: false, message: '아이디와 비밀번호를 입력해주세요.' });
 
   try {
-    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]); // 사용자 조회
     if (result.rows.length === 0) return res.status(400).json({ success: false, message: '아이디 또는 비밀번호가 잘못되었습니다.' });
 
     const user = result.rows[0];
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password); // 비밀번호 일치 여부 확인
 
     if (!isMatch) return res.status(400).json({ success: false, message: '아이디 또는 비밀번호가 잘못되었습니다.' });
 
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' }); // JWT 토큰 생성
 
     res.json({ success: true, message: '로그인 성공', token, user: { id: user.id, username: user.username } });
   } catch (error) {
@@ -82,6 +86,8 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ success: false, message: '서버 오류 발생' });
   }
 });
+
+// 레시피 추천
 app.post('/api/recommend', async (req, res) => {
   const { ingredients } = req.body;
   if (!ingredients) return res.status(400).json({ error: '재료를 입력해주세요.' });
@@ -92,6 +98,8 @@ app.post('/api/recommend', async (req, res) => {
     res.status(500).json({ error: '레시피 생성 중 오류가 발생했습니다.' });
   }
 });
+
+// 재료 대체
 app.post('/api/substitute', async (req, res) => {
   const { ingredient, recipeTitle, excludedIngredients } = req.body;
   if (!ingredient) return res.status(400).json({ error: '재료명이 필요합니다.' });
@@ -102,6 +110,8 @@ app.post('/api/substitute', async (req, res) => {
     res.status(500).json({ error: '대체 재료 찾기 실패' });
   }
 });
+
+// 레시피 저장
 app.post('/api/save', async (req, res) => {
   const { user_id, recipe_title, recipe_content } = req.body;
   if (!user_id || !recipe_title || !recipe_content) {
@@ -112,7 +122,7 @@ app.post('/api/save', async (req, res) => {
   }
   try {
     const result = await pool.query(
-      'INSERT INTO saved_recipes (user_id, recipe_title, recipe_content) VALUES ($1, $2, $3) RETURNING *',
+      'INSERT INTO saved_recipes (user_id, recipe_title, recipe_content) VALUES ($1, $2, $3) RETURNING *', // 레시피 저장
       [user_id, recipe_title, recipe_content]
     );
     res.json({ success: true, message: '저장 완료', data: result.rows[0] });
@@ -122,6 +132,7 @@ app.post('/api/save', async (req, res) => {
   }
 });
 
+// 저장된 레시피 조회
 app.get('/api/saved-recipes', async (req, res) => {
   const { user_id } = req.query;
   if (!user_id) {
@@ -139,6 +150,7 @@ app.get('/api/saved-recipes', async (req, res) => {
   }
 });
 
+// 저장된 레시피 삭제
 app.delete('/api/saved-recipes/:id', async (req, res) => {
   const { id } = req.params;
   const { user_id } = req.query;

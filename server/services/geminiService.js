@@ -41,12 +41,12 @@ async function getRecipeRecommendation(ingredients) { // 레시피 추천
   `;
 
   try {
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const result = await model.generateContent(prompt); // Gemini API 호출
+    const text = result.response.text(); // 응답 텍스트 추출
     try {
       const jsonMatch = text.match(/\{[\s\S]*\}/); // JSON 형식의 응답을 찾기 위한 정규 표현식
       return JSON.parse(jsonMatch ? jsonMatch[0] : text); // JSON 형식의 응답을 파싱
-    } catch (parseError) {
+    } catch (parseError) { 
       console.error("JSON 파싱 오류:", parseError);
       return { title: "레시피", description: "", ingredients: [], steps: [{ step: 1, instruction: text }] };
     }

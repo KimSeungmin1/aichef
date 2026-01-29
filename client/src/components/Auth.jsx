@@ -1,29 +1,31 @@
 import { useState } from 'react';
 
+// 인증 컴포넌트
 const Auth = ({ onLogin }) => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [isLogin, setIsLogin] = useState(true); // 로그인/회원가입 상태 관리
+  const [username, setUsername] = useState(''); // 사용자 이름
+  const [password, setPassword] = useState(''); // 사용자 비밀번호
+  const [error, setError] = useState(''); // 에러 메시지
 
-  const API_BASE = 'http://localhost:5000';
+  const API_BASE = 'http://localhost:5000'; // API 기본 URL
 
+  // 폼 제출 핸들러
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+    e.preventDefault(); // 폼 제출 방지
+    setError(''); // 에러 초기화
 
-    const endpoint = isLogin ? '/api/login' : '/api/register';
+    const endpoint = isLogin ? '/api/login' : '/api/register'; // 로그인/회원가입 API 엔드포인트
     
     try {
-      const response = await fetch(`${API_BASE}${endpoint}`, {
-        method: 'POST',
+      const response = await fetch(`${API_BASE}${endpoint}`, { // API 호출
+        method: 'POST', // HTTP 메소드
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json', // Content-Type 헤더
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password }), // 요청 본문
       });
 
-      const data = await response.json();
+      const data = await response.json(); // 응답 데이터
 
       if (data.success) {
         localStorage.setItem('token', data.token);
@@ -38,6 +40,7 @@ const Auth = ({ onLogin }) => {
     }
   };
 
+  // 인증 UI
   return (
     <div className="auth-container">
       <div className="auth-box">

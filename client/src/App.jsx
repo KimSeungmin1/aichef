@@ -4,18 +4,22 @@ import Auth from './components/Auth';
 
 const API_BASE = 'http://localhost:5000';
 
+// 재료 이름 추출
 const extractIngredientName = (text) => {
-  const match = text.match(/([가-힣]+(?:\s+[가-힣]+)?)/);
-  return match ? match[1].trim() : text.split(/[로을를]/)[0].trim();
+  const match = text.match(/([가-힣]+(?:\s+[가-힣]+)?)/); // 정규 표현식: 한글 단어 추출
+  return match ? match[1].trim() : text.split(/[로을를]/)[0].trim(); 
+  // match[1].trim(): 매치된 단어를 공백으로 제거
+  // text.split(/[로을를]/)[0].trim(): '로을를'로 분리한 첫 번째 단어를 공백으로 제거  
 };
 
+// 대체 재료 결과 컴포넌트
 function SubstituteResult({ substitute, ingredient, onSubstitute, loadingSubstitute, substitutes, usedIngredients }) {
-  const substituteText = typeof substitute === 'string' ? substitute : substitute.text;
-  const parentIngredient = typeof substitute === 'object' ? substitute.parentIngredient : null;
-  const key = parentIngredient ? `${parentIngredient}_${ingredient}` : ingredient;
-  const extracted = extractIngredientName(substituteText);
-  const nestedKey = `${key}_${extracted}`;
-  const nestedSubstitute = substitutes[nestedKey];
+  const substituteText = typeof substitute === 'string' ? substitute : substitute.text; // 대체 재료 텍스트 추출
+  const parentIngredient = typeof substitute === 'object' ? substitute.parentIngredient : null; // 부모 재료 추출
+  const key = parentIngredient ? `${parentIngredient}_${ingredient}` : ingredient; // 키 생성
+  const extracted = extractIngredientName(substituteText); // 재료 이름 추출
+  const nestedKey = `${key}_${extracted}`; // 중첩 키 생성
+  const nestedSubstitute = substitutes[nestedKey]; // 중첩 대체 재료 추출
 
   return (
     <div className="substitute-result">
@@ -30,49 +34,54 @@ function SubstituteResult({ substitute, ingredient, onSubstitute, loadingSubstit
         </button>
       )}
       {nestedSubstitute && (
-        <SubstituteResult
-          substitute={nestedSubstitute}
-          ingredient={extracted}
-          onSubstitute={onSubstitute}
-          loadingSubstitute={loadingSubstitute}
-          substitutes={substitutes}
-          usedIngredients={[...usedIngredients, extracted]}
+        <SubstituteResult // 중첩된 대체 재료 결과 컴포넌트
+          substitute={nestedSubstitute} // 중첩 대체 재료
+          ingredient={extracted} // 추출된 재료
+          onSubstitute={onSubstitute} // 대체 재료 추가 함수
+          loadingSubstitute={loadingSubstitute} // 로딩 상태
+          substitutes={substitutes} // 대체 재료 상태
+          usedIngredients={[...usedIngredients, extracted]} // 사용된 재료
         />
       )}
     </div>
   );
 }
 
+// 메인 컴포넌트
 function App() {
-  const [user, setUser] = useState(null);
-  const [ingredients, setIngredients] = useState('');
-  const [recipe, setRecipe] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [substitutes, setSubstitutes] = useState({});
-  const [loadingSubstitute, setLoadingSubstitute] = useState({});
-  const [savedRecipes, setSavedRecipes] = useState([]);
-  const [showSavedRecipes, setShowSavedRecipes] = useState(false);
-  const [isFromSavedRecipes, setIsFromSavedRecipes] = useState(false);
+  const [user, setUser] = useState(null); // 사용자 상태
+  const [ingredients, setIngredients] = useState(''); // 재료 상태
+  const [recipe, setRecipe] = useState(null); // 레시피 상태
+  const [loading, setLoading] = useState(false); // 로딩 상태
+  const [substitutes, setSubstitutes] = useState({}); // 대체 재료 상태
+  const [loadingSubstitute, setLoadingSubstitute] = useState({}); // 대체 재료 로딩 상태
+  const [savedRecipes, setSavedRecipes] = useState([]); // 저장된 레시피 상태
+  const [showSavedRecipes, setShowSavedRecipes] = useState(false); // 저장된 레시피 표시 상태
+  const [isFromSavedRecipes, setIsFromSavedRecipes] = useState(false); // 저장된 레시피에서 가져왔는지 여부
 
+  // 로컬 스토리지에서 사용자 정보 로드
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
+    if (token && storedUser) { // 토큰과 사용자 정보가 모두 있는 경우
+      setUser(JSON.parse(storedUser)); // 사용자 정보 설정
     }
   }, []);
 
+  // 로그아웃
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setUser(null);
-    setRecipe(null);
-    setShowSavedRecipes(false);
+    localStorage.removeItem('token'); // 로컬 스토리지에서 토큰 제거
+    localStorage.removeItem('user'); // 로컬 스토리지에서 사용자 정보 제거
+    setUser(null); 
+    setRecipe(null); 
+    setShowSavedRecipes(false); // 저장된 레시피 표시 상태 초기화
   };
 
+  // 날짜 포맷팅
   const formatDate = (d) =>
     new Date(d).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+  // 레시피 상태 초기화
   const resetRecipeState = () => {
     setRecipe(null); // 레시피 초기화
     setIsFromSavedRecipes(false);
@@ -126,7 +135,7 @@ function App() {
     const usedIngredients = providedUsed ?? getUsedIngredients(ingredient, parentIngredient, substitutes); // 사용된 재료 추출
     setLoadingSubstitute((prev) => ({ ...prev, [key]: true })); // 로딩 상태 업데이트
     try {
-      const res = await fetch(`${API_BASE}/api/substitute`, { 
+      const res = await fetch(`${API_BASE}/api/substitute`, { // 대체 재료 API 호출
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -152,7 +161,7 @@ function App() {
   const handleSaveToDB = async () => {
     if (!recipe || !user) return;
     try {
-      const res = await fetch(`${API_BASE}/api/save`, {
+      const res = await fetch(`${API_BASE}/api/save`, { // 레시피 저장 API 호출
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
